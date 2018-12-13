@@ -4,9 +4,10 @@
 #--------------------------------------------------------------------------
 #
 
-FROM php:7.0-alpine
+ARG PHP_VERSION=${PHP_VERSION}
+FROM php:${PHP_VERSION}-alpine
 
-MAINTAINER Mahmoud Zalt <mahmoud@zalt.me>
+LABEL maintainer="Mahmoud Zalt <mahmoud@zalt.me>"
 
 RUN apk --update add wget \
   curl \
@@ -21,14 +22,35 @@ RUN apk --update add wget \
   libgsasl-dev \
   supervisor
 
-RUN docker-php-ext-install mysqli mbstring pdo pdo_mysql mcrypt tokenizer xml
-RUN pecl channel-update pecl.php.net && pecl install memcached && docker-php-ext-enable memcached
+RUN docker-php-ext-install mysqli mbstring pdo pdo_mysql tokenizer xml pcntl
+RUN pecl channel-update pecl.php.net && pecl install memcached mcrypt-1.0.1 && docker-php-ext-enable memcached
+
+#Install SOAP package:
+ARG INSTALL_SOAP=false
+RUN if [ ${INSTALL_SOAP} = true ]; then \
+    docker-php-ext-install soap \
+;fi
+
+#Install BCMath package:
+ARG INSTALL_BCMATH=false
+RUN if [ ${INSTALL_BCMATH} = true ]; then \
+    docker-php-ext-install bcmath \
+;fi
 
 # Install PostgreSQL drivers:
 ARG INSTALL_PGSQL=false
 RUN if [ ${INSTALL_PGSQL} = true ]; then \
     apk --update add postgresql-dev \
         && docker-php-ext-install pdo_pgsql \
+;fi
+
+# Install ZipArchive:
+ARG INSTALL_ZIP_ARCHIVE=false
+RUN if [ ${INSTALL_ZIP_ARCHIVE} = true ]; then \
+    apk --update add libzip-dev && \
+    docker-php-ext-configure zip --with-libzip && \
+    # Install the zip extension
+    docker-php-ext-install zip \
 ;fi
 
 RUN rm /var/cache/apk/* \
@@ -54,8 +76,15 @@ ENTRYPOINT ["/usr/bin/supervisord", "-n", "-c",  "/etc/supervisord.conf"]
 #
 # If you need to modify this image, feel free to do it right here.
 #
-	# -- Your awesome modifications go here -- #
+    # -- Your awesome modifications go here -- #
 
+#
+#--------------------------------------------------------------------------
+# Check PHP version
+#--------------------------------------------------------------------------
+#
+
+RUN php -v | head -n 1 | grep -q "PHP ${PHP_VERSION}."
 
 #
 #--------------------------------------------------------------------------
